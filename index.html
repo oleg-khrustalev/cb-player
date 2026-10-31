@@ -14,7 +14,15 @@
    site and as oleg-khrustalev.github.io/cb-player/ (see README). ?v=<11-character video id>&t=<start seconds> */
 (function () {
   var q = new URLSearchParams(location.search), v = q.get('v') || '', t = q.get('t') || '', f = null;
-  if (/^[\w-]{11}$/.test(v)) {
+  // the privacy-mode player first, then the regular one: some school filters block youtube-nocookie.com but not
+  // youtube.com. A player that loaded answers the embed API's "listening" call; a blocked one never does. The host
+  // that worked last is tried first.
+  var HOSTS = ['https://www.youtube-nocookie.com', 'https://www.youtube.com'], good = null;
+  try { good = localStorage.getItem('cb-yt-host'); } catch (e) {}
+  if (HOSTS.indexOf(good) > 0) HOSTS = [good].concat(HOSTS.filter(function (h) { return h !== good; }));
+  function play(i) {
+    if (f) f.remove();
+    var answered = false, poke, timer;
     f = document.createElement('iframe');
     f.title = 'YouTube video player';
     f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write';
@@ -22,9 +30,23 @@
     f.referrerPolicy = 'strict-origin-when-cross-origin';
     // the Wasmer site is cross-origin isolated, which only lets a cross-origin player in as credentialless
     if (window.crossOriginIsolated) f.setAttribute('credentialless', '');
-    f.src = 'https://www.youtube-nocookie.com/embed/' + v + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1' + (/^\d+$/.test(t) && t !== '0' ? '&start=' + t : '');
+    f.src = HOSTS[i] + '/embed/' + v + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin) +
+      (/^\d+$/.test(t) && t !== '0' ? '&start=' + t : '');
+    var me = f;
+    function on(e) {
+      if (e.source !== me.contentWindow || e.origin !== HOSTS[i]) return;
+      answered = true; clearInterval(poke); clearTimeout(timer); removeEventListener('message', on);
+      try { localStorage.setItem('cb-yt-host', HOSTS[i]); } catch (x) {}
+    }
+    addEventListener('message', on);
+    poke = setInterval(function () { try { me.contentWindow.postMessage('{"event":"listening","id":1,"channel":"widget"}', '*'); } catch (x) {} }, 400);
+    timer = setTimeout(function () {
+      clearInterval(poke); removeEventListener('message', on);
+      if (!answered && i + 1 < HOSTS.length) play(i + 1);
+    }, 6000);
     document.body.appendChild(f);
   }
+  if (/^[\w-]{11}$/.test(v)) play(0);
   // the file waits for this before showing the frame (a school filter's block page never sends it), and its panic
   // key's pauseVideo command is passed on to the player
   addEventListener('message', function (e) { if (e.source === parent && f && typeof e.data === 'string') f.contentWindow.postMessage(e.data, '*'); });
