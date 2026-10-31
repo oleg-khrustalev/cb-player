@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Player</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}iframe{display:block;width:100%;height:100%;border:0}</style>
+</head>
+<body>
+<script>
+/* Curl Browser's YouTube helper. YouTube's player won't start in a page opened from disk (Error 153: it needs a
+   referring website), so the single file frames this page, which frames the player. Served as /yt.html on the Wasmer
+   site and as oleg-khrustalev.github.io/cb-player/ (see README). ?v=<11-character video id>&t=<start seconds> */
+(function () {
+  var q = new URLSearchParams(location.search), v = q.get('v') || '', t = q.get('t') || '', f = null;
+  if (/^[\w-]{11}$/.test(v)) {
+    f = document.createElement('iframe');
+    f.title = 'YouTube video player';
+    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write';
+    f.allowFullscreen = true;
+    f.referrerPolicy = 'strict-origin-when-cross-origin';
+    // the Wasmer site is cross-origin isolated, which only lets a cross-origin player in as credentialless
+    if (window.crossOriginIsolated) f.setAttribute('credentialless', '');
+    f.src = 'https://www.youtube-nocookie.com/embed/' + v + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1' + (/^\d+$/.test(t) && t !== '0' ? '&start=' + t : '');
+    document.body.appendChild(f);
+  }
+  // the file waits for this before showing the frame (a school filter's block page never sends it), and its panic
+  // key's pauseVideo command is passed on to the player
+  addEventListener('message', function (e) { if (e.source === parent && f && typeof e.data === 'string') f.contentWindow.postMessage(e.data, '*'); });
+  parent.postMessage({ cbYt: 1 }, '*');
+})();
+</script>
+</body>
+</html>
