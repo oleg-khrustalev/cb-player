@@ -28,8 +28,8 @@
     f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen; clipboard-write';
     f.allowFullscreen = true;
     f.referrerPolicy = 'strict-origin-when-cross-origin';
-    // the Wasmer site is cross-origin isolated, which only lets a cross-origin player in as credentialless
-    if (window.crossOriginIsolated) f.setAttribute('credentialless', '');
+    // a site sending COEP only lets a cross-origin player in as credentialless (Wasmer serves this page without it)
+    f.setAttribute('credentialless', '');
     f.src = HOSTS[i] + '/embed/' + v + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin) +
       (/^\d+$/.test(t) && t !== '0' ? '&start=' + t : '');
     var me = f;
