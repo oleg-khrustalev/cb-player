@@ -47,9 +47,14 @@
     document.body.appendChild(f);
   }
   if (/^[\w-]{11}$/.test(v)) play(0);
-  // the file waits for this before showing the frame (a school filter's block page never sends it), and its panic
-  // key's pauseVideo command is passed on to the player
-  addEventListener('message', function (e) { if (e.source === parent && f && typeof e.data === 'string') f.contentWindow.postMessage(e.data, '*'); });
+  // the file waits for this before showing the frame (a school filter's block page never sends it). Commands from the
+  // file (its panic key's pauseVideo, the music player's play/pause/next) go down to the player, and the player's
+  // reports (state, time, length) go back up, so the file can drive the player as if it framed it directly
+  addEventListener('message', function (e) {
+    if (!f) return;
+    if (e.source === parent && typeof e.data === 'string') f.contentWindow.postMessage(e.data, '*');
+    else if (e.source === f.contentWindow && parent !== window) parent.postMessage(e.data, '*');
+  });
   parent.postMessage({ cbYt: 1 }, '*');
 })();
 </script>
